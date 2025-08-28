@@ -100,9 +100,9 @@ cd stable-sim2real
 ```
 
 First of all, you have to make sure that you have all dependencies in place.
-The simplest way to do so, is to use [anaconda](https://www.anaconda.com/). 
+The simplest way to do so is to use [anaconda](https://www.anaconda.com/). 
 
-You can create an anaconda environment called `stable-sim2real` and install all the dependencies as below. For linux, you need to install `libopenexr-dev` before creating the environment. Then install all the remaining dependencies:
+You can create an Anaconda environment called `stable-sim2real` and install all the dependencies as below. For linux, you need to install `libopenexr-dev` before creating the environment. Then install all the remaining dependencies:
 
 ```bash
 sudo apt-get install libopenexr-dev # for linux
@@ -115,9 +115,9 @@ Next, download all the pretrained models from [OneDrive](https://cuhko365-my.sha
 
 ## Data Preparation
 
-Download the training dataset from [OneDrive](https://cuhko365-my.sharepoint.com/:u:/g/personal/221019043_link_cuhk_edu_cn/EVvkUo5jgEZNiTXNGG1hXBkBTVefVVBLjLJxK7sbzBGjVQ?e=ZmoWX3) or [Sharepoint](https://cuhko365.sharepoint.com/:u:/s/CUHKSZ_SSE_GAP-Lab2/ET66yxmFoExInhh4lEAGuqEB53PsFAK3Z-ns1QeMBR3QYQ?e=wAJark), and put all of them into `dataset` folder. It contains 40,000+ synthetic-real depth pairs with corresponding RGB images. It is processed from [LASA](https://github.com/GAP-LAB-CUHK-SZ/LASA), a large-scaled aligned shape annotation dataset with CAD/real 3D data pairs.
+Download the training dataset from [OneDrive](https://cuhko365-my.sharepoint.com/:u:/g/personal/221019043_link_cuhk_edu_cn/EVvkUo5jgEZNiTXNGG1hXBkBTVefVVBLjLJxK7sbzBGjVQ?e=ZmoWX3) or [Sharepoint](https://cuhko365.sharepoint.com/:u:/s/CUHKSZ_SSE_GAP-Lab2/ET66yxmFoExInhh4lEAGuqEB53PsFAK3Z-ns1QeMBR3QYQ?e=wAJark), and put `lasa_depth` into `dataset` folder. It contains 40,000+ synthetic-real depth pairs with corresponding RGB images. It is processed from [LASA](https://github.com/GAP-LAB-CUHK-SZ/LASA), a large-scale aligned shape annotation dataset with CAD/real 3D data pairs.
 
-Next, download the camera poses from [OneDrive](https://cuhko365-my.sharepoint.com/:u:/g/personal/221019043_link_cuhk_edu_cn/EbgsJC64R_BKudMyK2hB4icByEo-42goIY1ZaRfOx3znXA?e=ZFvbaL) or [Sharepoint](https://cuhko365.sharepoint.com/:u:/s/CUHKSZ_SSE_GAP-Lab2/Ebh2CjOhyyNHrVEfov8rt-UB_rr1Mbl8oUVEZ_-0qXnR_A?e=2YxiJZ), and put all of them into `dataset` folder. This is for later depth fusion.
+Next, download the camera poses from [OneDrive](https://cuhko365-my.sharepoint.com/:u:/g/personal/221019043_link_cuhk_edu_cn/EbgsJC64R_BKudMyK2hB4icByEo-42goIY1ZaRfOx3znXA?e=ZFvbaL) or [Sharepoint](https://cuhko365.sharepoint.com/:u:/s/CUHKSZ_SSE_GAP-Lab2/Ebh2CjOhyyNHrVEfov8rt-UB_rr1Mbl8oUVEZ_-0qXnR_A?e=2YxiJZ), and put `lasa_pose` into `dataset` folder. This is for later depth fusion.
 
 ## Run Stable-Sim2Real on LASA validation set
 
@@ -143,7 +143,7 @@ python lasa_eval_fusion.py
 After finishing this, the visualization result of the final 3D simulated mesh will be *automatically* 😊 saved as `xxx_mesh.obj` file.
 
 ## 🚩 TODO
-- [ ] Provide demo code (will also support HuggingFace) to simulate and fuse your own CAD object/scene depth (including render, simulate and fusion).
+- [ ] Provide demo code (will also support HuggingFace) to simulate and fuse your own CAD object/scene depth (including render, simulate, and fusion).
 - [ ] Complete training code with training and inference of 3D-Aware Local Discriminating.
 - [ ] Provide some sample data from OOD datasets (e.g., ShapeNet) for inference.
 
