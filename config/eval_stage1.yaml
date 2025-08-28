@@ -1,5 +1,5 @@
 model:
-  target: cldm.cldm_vae_stage2.ControlLDMVAE
+  target: cldm.cldm_vae.ControlLDMVAE
   params:
     linear_start: 0.00085
     linear_end: 0.0120
@@ -21,7 +21,7 @@ model:
     # sampler_type: HERI_DDIMSampler  # proposed by chongjie ye
 
     control_stage_config:
-      target: cldm.cldm_vae_stage2.ControlNetVAE
+      target: cldm.cldm_vae.ControlNetVAE
       params:
         use_checkpoint: True
         image_size: 32 # unused
@@ -85,4 +85,4 @@ model:
       params:
         freeze: True
         layer: "penultimate"
-        version: "/data/mutian/sim2real/weights/open_clip_pytorch_model.bin"
+        version: "./pretrained_weights/open_clip_pytorch_model.bin"

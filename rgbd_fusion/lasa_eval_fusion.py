@@ -6,30 +6,30 @@ import glob
     
 import argparse
 parser=argparse.ArgumentParser()
-# parser.add_argument("--depth_dir",default='./eval_results/diffusion-sim2real_cadcond_wloss_cadv2_1w',type=str)
-parser.add_argument("--depth_dir",default='/data_new3/mutian/generated_depth/diffusion-sim2real_cadcond_wloss_cadv2_1w',type=str)
-parser.add_argument("--save_dir",default='/data_new3/mutian/new_pc_test',type=str)
+parser.add_argument("--depth_dir",default='./output/stage2',type=str) # path to Stage-II output
+parser.add_argument("--save_dir",default='./output/stage2',type=str) # path to save the fused mesh
+parser.add_argument("--save_dir",default='./output/stage1',type=str) # path to save the fused mesh
 args=parser.parse_args()
 
-input_dir=os.path.join("/mnt/chongjie_nas/dataset/ARKitScenes/processed/gosurf_processed/Training")
+input_dir=os.path.join("./dataset/lasa_pose") # path to lasa_pose
 scene_id_list = os.listdir(args.depth_dir)
-# scene_id_list = ["45261507"]
+# scene_id_list = ["47334202"]
 out_depth = "pred" # "pred", "rand"
 
 for scene_id in scene_id_list:
     print("TSDF fusing scene_{}".format(scene_id))
-    image_path_list=glob.glob(os.path.join(args.depth_dir,scene_id,"*_hint.npy"))
-    image_id_list=[os.path.basename(item).split("_")[0].split(".")[0] for item in image_path_list]
-    pose_dir=os.path.join(input_dir, scene_id, "extracted", "pose")
+    image_path_list=glob.glob(os.path.join(args.depth_dir,scene_id,"*.npz"))
+    image_id_list=[os.path.basename(item).split(".")[0] for item in image_path_list]
+    pose_dir=os.path.join(args.pose_dir, scene_id)
     image_list=[]
     depth_list=[]
     pose_list=[]
     for image_id in image_id_list:
         pose_path=os.path.join(pose_dir, image_id+".txt")
-        image_path=os.path.join(args.depth_dir,scene_id,image_id+"_hint.npy")
-        depth_path=os.path.join(args.depth_dir,scene_id,image_id+"_{}_depth.npy".format(out_depth))
-        rgb=np.load(image_path) # H,W,3
-        depth=np.load(depth_path)
+        frame_path=os.path.join(args.depth_dir,scene_id,image_id+".npz")
+        frame_data=np.load(frame_path, allow_pickle=True)
+        rgb=frame_data['hint'] # H,W,3
+        depth=frame_data[out_depth]
         if out_depth == "pred":
             depth=depth.transpose(1, 2, 0)
         depth = np.mean(depth, axis=-1)

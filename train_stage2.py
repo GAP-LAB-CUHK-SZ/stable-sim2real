@@ -9,17 +9,18 @@ from cldm.model import create_model, load_state_dict
 from share import *
 from pytorch_lightning.strategies import DDPStrategy
 
-from dataset import Sim2RealDataset
+from data.dataset_train_stage2 import Sim2RealDataset
 import torch
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 
 def get_argparse():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--resume_path', default='/data3/mutian/sim2real/weights/init-sd21_vae.ckpt')
-    parser.add_argument('--data_path', default='/data3/mutian/lasa_cad_depth')
-    parser.add_argument('--exp_name', default='diffusion-sim2real_cadcond_test')
-    parser.add_argument('--config_file', default='config/generate_depth_cadcond.yaml')
+    parser.add_argument('--resume_path', default='pretrained_weights/init-sd21_vae.ckpt') # path to SD
+    parser.add_argument('--data_path', default='dataset/lasa_depth') # path to lasa_depth
+    parser.add_argument('--stage1_output_path', default='output/stage1') # path to Stage-I output
+    parser.add_argument('--exp_name', default='stage2')
+    parser.add_argument('--config_file', default='config/train_stage2.yaml')
     parser.add_argument('--batch_size', type=int, default=5)
     parser.add_argument('--logger_freq', type=int, default=500)
     parser.add_argument('--resolution', type=int, default=512)
@@ -41,11 +42,11 @@ def main(args):
     checkpoint_callback = ModelCheckpoint(
         dirpath=save_dir,
         every_n_train_steps=10000,
-        save_last=False,
+        save_last=True,
         save_top_k=-1, # saving all model
     )
 
-    dataset = Sim2RealDataset(data_dir=args.data_path, split='train', resolution=args.resolution)
+    dataset = Sim2RealDataset(data_dir=args.data_path, stage1_dir=args.stage1_output_path, resolution=args.resolution)
     dataloader = DataLoader(dataset, num_workers=4, batch_size=args.batch_size, shuffle=True)
     logger = ImageLogger(batch_frequency=args.logger_freq, save_dir=save_dir)
     trainer = pl.Trainer(accelerator='gpu', precision=16,  devices=args.gpus,  strategy="ddp_find_unused_parameters_true",

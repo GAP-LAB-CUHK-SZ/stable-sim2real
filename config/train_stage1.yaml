@@ -8,11 +8,11 @@ model:
     timesteps: 1000
     first_stage_key: "jpg"
     cond_stage_key: "txt"
-    control_key: "hint"
+    control_key: "prior"
     image_size: 64
     channels: 4
     cond_stage_trainable: false
-    conditioning_key: crossattn
+    conditioning_key: crossattn  # how to perform condition
     monitor: val/loss_simple_ema
     scale_factor: 0.18215
     parameterization: x0 
@@ -20,7 +20,7 @@ model:
     only_mid_control: False
     # sampler_type: HERI_DDIMSampler  # proposed by chongjie ye
 
-    control_stage_config:
+    control_stage_config:  # in params
       target: cldm.cldm_vae.ControlNetVAE
       params:
         use_checkpoint: True
@@ -85,4 +85,4 @@ model:
       params:
         freeze: True
         layer: "penultimate"
-        version: "/data2/chongjie/workspace/code/NormalDiffusion/weights/open_clip_pytorch_model.bin"
+        version: "./pretrained_weights/open_clip_pytorch_model.bin"  # path to clip

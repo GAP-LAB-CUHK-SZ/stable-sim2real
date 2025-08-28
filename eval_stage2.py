@@ -8,8 +8,23 @@ import torch
 torch.multiprocessing.set_sharing_strategy('file_system')
 import numpy as np 
 from scipy.stats import wasserstein_distance
-from dataset_eval_stage2 import Sim2RealDataset
+from data.dataset_infer_stage2 import Sim2RealDataset
 from pytorch_lightning import seed_everything
+
+def unnorm_and_inverse_log_scale(d_log, d_min=0.05, d_max=5):
+    """
+    Invert the log-scaled depth values.
+    
+    Parameters:
+    d_log (numpy.ndarray): Log-scaled depth values
+    d_min (float): Minimum supported depth
+    d_max (float): Maximum supported depth for scaling
+    
+    Returns:
+    numpy.ndarray: Inverted depth values
+    """
+    d_log = (d_log + 1) / 2
+    return d_min * np.exp(d_log * np.log(d_max / d_min))
 
 
 def unnorm_and_inverse_log_scale_diff(d_cad, d_diff, d_min=0.05, d_max=5):
@@ -125,11 +140,11 @@ def add_noise(depth_maps, noise_level=0.1):
 
 def get_argparse():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--resume_path', default='/data3/mutian/sim2real/checkpoints/diffusion-sim2real_cadcond_stage2_diff_small_new/epoch=8-step=20000.ckpt')
-    parser.add_argument('--data_path', default='/data4/mutian/generated_depth/diffusion-sim2real_cadcond_scene_diff')
-    parser.add_argument('--exp_name', default='diffusion-sim2real_cadcond_stage2_diff_small_new_2w')
-    parser.add_argument('--scene_id', default='42897709')
-    parser.add_argument('--config_file', default='config/eval_depth_cadcond_stage2.yaml')
+    parser.add_argument('--resume_path', default='pretrained_weights/stage2_main.ckpt')
+    parser.add_argument('--data_path', default='dataset/lasa_depth') # path to lasa_depth
+    parser.add_argument('--stage1_output_path', default='output/stage1') # path to Stage-I output
+    parser.add_argument('--save_dir', default='output/stage2') # path to save the Stage-II prediction files, need about 6MB for each depth, need about 50+GB to hold all LASA scene depth for eval Stage-II
+    parser.add_argument('--config_file', default='config/eval_stage2.yaml')
     parser.add_argument('--batch_size', type=int, default=12)
     parser.add_argument('--resolution', type=int, default=512)
     parser.add_argument('--ddim_steps', type=int, default=50)
@@ -145,33 +160,35 @@ def main(args):
     model = model.cuda()
     
     # Prepare evaluation dir
-    save_dir = f'./eval_results/{args.exp_name}'
-    os.makedirs(save_dir, exist_ok=True)
+    os.makedirs(args.save_dir, exist_ok=True)
     
-    dataset = Sim2RealDataset(data_dir=args.data_path, split='val', scene_id=args.scene_id, resolution=args.resolution)
+    dataset = Sim2RealDataset(data_dir=args.data_path, stage1_dir=args.stage1_output_path, resolution=args.resolution)
     print("Data quantity:", len(dataset))
     dataloader = DataLoader(dataset, num_workers=4, batch_size=args.batch_size, shuffle=False)
-
-    all_metrics = []
     for batch_id, _batch in enumerate(dataloader):
-        _item_id = _batch["item_id"]
+        _scene_id = _batch["scene_id"]
+        _frame_id = _batch["frame_id"]
         _result = model.log_images(_batch, N=args.batch_size, ddim_steps=args.ddim_steps, unconditional_guidance_scale=1)
         _gt, _pred = unnorm_and_inverse_log_scale_diff(_batch['prior_cad'].cpu().numpy(), _result['reconstruction'].cpu().numpy()), unnorm_and_inverse_log_scale_diff(_batch['prior_cad'].cpu().numpy(), _result['samples'].cpu().numpy())  # B, 3, H, W
-        _cad_depth, _scan_depth = unnorm_and_inverse_log_scale_diff(_batch['prior_cad'].cpu().numpy()), unnorm_and_inverse_log_scale(_batch['scan'].cpu().numpy())  # B, H, W, 3
-        
+        # _cad_depth, _scan_depth = unnorm_and_inverse_log_scale(_batch['prior_cad'].cpu().numpy()), unnorm_and_inverse_log_scale(_batch['scan'].cpu().numpy())  # B, H, W, 3
+        rgb = _batch['hint'].cpu().numpy()
         # save image array for visualization and rgbd fusion
-        for i in range(len(_item_id)):
-            sub_dir = os.path.join(save_dir, args.scene_id)
+        for i in range(len(_scene_id)):
+            scene_id = _scene_id[i]
+            sub_dir = os.path.join(args.save_dir, scene_id)
             os.makedirs(sub_dir, exist_ok=True)
-            frame_id = _item_id[i]
+            frame_id = _frame_id[i]
+            np.savez_compressed(os.path.join(sub_dir, frame_id + '.npz'), 
+                                hint=(rgb[i]+1)/2,
+                                pred=_pred[i])
             # np.save(os.path.join(sub_dir, frame_id + '_rgb.npy'), ori_rgb[i])
             # np.save(os.path.join(sub_dir, frame_id + '_scan.npy'), ori_scan[i])
             # np.save(os.path.join(sub_dir, frame_id + '_cad.npy'), ori_cad[i])
             # np.save(os.path.join(sub_dir, frame_id + '_hint.npy'), (rgb[i]+1)/2)
             # np.save(os.path.join(sub_dir, frame_id + '_decode_gt_scan_depth.npy'), _gt[i])
-            np.save(os.path.join(sub_dir, frame_id + '_gt_cad_depth.npy'), _cad_depth[i])
-            np.save(os.path.join(sub_dir, frame_id + '_gt_scan_depth.npy'), _scan_depth[i])
-            np.save(os.path.join(sub_dir, frame_id + '_pred_depth.npy'), _pred[i])
+            # np.save(os.path.join(sub_dir, frame_id + '_gt_cad_depth.npy'), _cad_depth[i])
+            # np.save(os.path.join(sub_dir, frame_id + '_gt_scan_depth.npy'), _scan_depth[i])
+            # np.save(os.path.join(sub_dir, frame_id + '_pred_depth.npy'), _pred[i])
             # np.save(os.path.join(sub_dir, frame_id + '_rand_depth.npy'), _rand_depth[i])
 
 if __name__ == '__main__':

@@ -11,7 +11,8 @@ import torchvision.transforms as T
 import cv2
 from share import *
 import torch
-
+from plyfile import PlyData
+import re
 
 def log_scale(d_r, d_min=0.05, d_max=5, filter_max=4.9):
     """
@@ -44,26 +45,31 @@ def log_scale(d_r, d_min=0.05, d_max=5, filter_max=4.9):
 
 
 class Sim2RealDataset(Dataset):
-    def __init__(self, data_dir='data/ARKitScenes_depth', split='train', scene_id='45261507', resolution=192):
+    def __init__(self, data_dir='data/lasa_depth', stage1_dir='output/stage1', resolution=512):
         self.data = []
 
-        item_list = glob(os.path.join(data_dir, scene_id,"*_gt.png"))
-        for item in item_list:
-            item_id = os.path.basename(item).split("_")[0]
-            _gt_path = item
+        split_file_path = os.path.join(data_dir, 'val.lst') # path to val.lst
+
+        with open(split_file_path,'r') as f:
+            item_id_list=f.readlines()
+        for item in item_id_list:
+            item = item.rstrip()
+            scene_id = item.split("/")[0]
+            frame_id = item.split("/")[1]
+            _gt_path = os.path.join(data_dir, item+"_gt.png")
             _rgb_path = _gt_path.replace("_gt.png", "_rgb.png")
             _scan_path = _gt_path.replace("_gt.png", "_scan.png")
-            self.data += [{"conditioning_image":_rgb_path, "scan_depth":_scan_path, "cad_depth":_gt_path, "item_id": item_id}]
+            _pred_path = os.path.join(stage1_dir, item+"_pred_depth.npy") # Stage-I output path
+            if os.path.exists(_pred_path): # only eval on depth samples whose Stage-I output exists
+                self.data += [{"conditioning_image":_rgb_path, "scan_depth":_scan_path, "cad_depth":_gt_path, "pred":_pred_path, "scene_id": scene_id, "frame_id": frame_id}]
 
         self.to_tensor = T.ToTensor()
         self.resolution = resolution
-        if split == "train":
-            self.transform = T.RandomResizedCrop(size=resolution, scale=(0.5,2.0))
-        else:
-            self.transform = T.Compose([
-                T.CenterCrop((192, 192)),  # Crop the image to 192x192 without resizing
-                T.Resize((512, 512))  # Resize the cropped image to 512x512
-            ])
+
+        self.transform = T.Compose([
+            T.CenterCrop((192, 192)),  # Crop the image to 192x192 (fit original input image size) without resizing
+            T.Resize((resolution, resolution))  # Resize the cropped image to 512x512 (Stable Diffusion input size)
+        ])
 
     def __len__(self):
         return len(self.data)
@@ -90,8 +96,9 @@ class Sim2RealDataset(Dataset):
         scan_depth = data[3:6]
         cad_depth = data[6:9]
         invalid_mask = data[9:].bool()
-
-        rgb_image = (rgb_image * 2.0) - 1.0  # [-1, 1]
+       
+        # norm to # [-1, 1]
+        rgb_image = (rgb_image * 2.0) - 1.0  
         scan_depth = (scan_depth * 2.0) - 1.0
         cad_depth = (cad_depth * 2.0) - 1.0
         return rgb_image, scan_depth, cad_depth, invalid_mask
@@ -107,23 +114,27 @@ class Sim2RealDataset(Dataset):
         """Permute the channels of each tensor."""
         return [tensor.permute(1, 2, 0) for tensor in tensors]
     
+    def norm_and_log_scale(self, d_r, d_min=0.05, d_max=5):
+        d_ori = (2.0 * np.log(d_r / d_min) / np.log(d_max / d_min)) - 1.0
+        return d_ori
+    
     def __getitem__(self, idx):
+        """process rgb, scan and cad depth, all same with Stage I:"""
         item = self.data[idx]
-
-        item_id = item['item_id']
-        rgb_image = self.load_image(item['conditioning_image'], "RGB") # for mask and save for later reconstruction
+        scene_id = item['scene_id']
+        frame_id = item['frame_id']
+        rgb_image = self.load_image(item['conditioning_image'], "RGB")
         scan_depth = self.load_depth_image(item['scan_depth'])
         cad_depth = self.load_depth_image(item['cad_depth'])
 
         rgb_image_ori = rgb_image
         scan_depth_ori = scan_depth
         cad_depth_ori = cad_depth
-    
-        cad_depth_mask = cad_depth > 0.0
-        diff_mask = np.abs(scan_depth - cad_depth) < 0.5
 
+        cad_depth_mask = cad_depth > 0.0
+        diff_mask = np.abs(scan_depth - cad_depth) < 0.5  # filter context (cad has no depth on context)
         invalid_mask = self.to_tensor(~(cad_depth_mask & diff_mask)).repeat(3, 1, 1)
-        
+
         scan_depth_tensor = self.to_tensor(self.log_scale_and_expand(scan_depth))
         cad_depth_tensor = self.to_tensor(self.log_scale_and_expand(cad_depth))
 
@@ -134,16 +145,26 @@ class Sim2RealDataset(Dataset):
         # Set invalid mask values to 1 for depth channels
         rgb_image, scan_depth, cad_depth = self.apply_invalid_mask(rgb_image, scan_depth, cad_depth, invalid_mask)
 
-        rgb_image, scan_depth, cad_depth = self.permute_channels(rgb_image, scan_depth, cad_depth)
-        
-        diff_depth = (scan_depth - cad_depth) / 2 # [-2, 2] / 2
+        """process Stage-I output:"""
+        pred_depth = np.load(item['pred']).transpose(1, 2, 0)
+        pred_depth = self.to_tensor(self.norm_and_log_scale(pred_depth))
+        weight_mask = np.ones((64, 64))  # actually useless during inference, just for pass to model forward
+        weight_mask = self.to_tensor(weight_mask)
 
-        return dict(jpg=diff_depth, txt="", hint=rgb_image, prior=cad_depth, ori_rgb=rgb_image_ori, ori_scan=scan_depth_ori, ori_cad=cad_depth_ori, item_id=item_id, scan=scan_depth)
+        rgb_image, scan_depth, cad_depth, pred_depth, weight_mask = self.permute_channels(rgb_image, scan_depth, cad_depth, pred_depth, weight_mask)
+        
+        # get residual
+        diff_depth = (scan_depth - cad_depth) / 2 # [-2, 2] / 2
+        diff_depth_pred = (pred_depth - cad_depth) / 2  # residual of Stage I output
+
+        return dict(jpg=diff_depth, txt="", hint=rgb_image, prior_cad=cad_depth, prior_pred=diff_depth_pred, weight_map=weight_mask, ori_rgb=rgb_image_ori, ori_scan=scan_depth_ori, ori_cad=cad_depth_ori, scene_id=scene_id, frame_id=frame_id, scan=scan_depth)
+
 
 if __name__ == '__main__':
     from torch.utils.data import DataLoader
-    data_path = "/data3/mutian/lasa_cad_depth"
-    dataset = Sim2RealDataset(data_dir=data_path, resolution=512)
+    data_path = "/data/mutian/lasa_depth"
+    stage1_dir = "../output/stage1"
+    dataset = Sim2RealDataset(data_dir=data_path, stage1_dir=stage1_dir, resolution=512)
     dataloader = DataLoader(dataset, num_workers=4, batch_size=2, shuffle=True)
     for data in dataloader:
         print("!!!")

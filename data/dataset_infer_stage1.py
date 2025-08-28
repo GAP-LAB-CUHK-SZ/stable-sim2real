@@ -13,7 +13,6 @@ from share import *
 import torch
 
 
-
 def log_scale(d_r, d_min=0.05, d_max=5, filter_max=4.9):
     """
     Compute log-scaled depth with special handling for out-of-range values using NumPy.
@@ -45,33 +44,32 @@ def log_scale(d_r, d_min=0.05, d_max=5, filter_max=4.9):
 
 
 class Sim2RealDataset(Dataset):
-    def __init__(self, data_dir='data/ARKitScenes_depth', split='train', resolution=192):
+    def __init__(self, data_dir='data/lasa_depth', split='val', resolution=512):
         self.data = []
 
-        if split=='train':
-            split_file_path = '/data3/mutian/sim2real/train.lst'
+        if split=="val":
+            split_file_path = os.path.join(data_dir, 'val.lst') # path to val.lst
         else:
-            split_file_path = '/data3/mutian/sim2real/val.lst'
-        
+            split_file_path = os.path.join(data_dir, 'train.lst') # path to train.lst
+
         with open(split_file_path,'r') as f:
             item_id_list=f.readlines()
-
         for item in item_id_list:
-            item = item.rstrip() 
+            item = item.rstrip()
+            scene_id = item.split("/")[0]
+            frame_id = item.split("/")[1]
             _gt_path = os.path.join(data_dir, item+"_gt.png")
             _rgb_path = _gt_path.replace("_gt.png", "_rgb.png")
             _scan_path = _gt_path.replace("_gt.png", "_scan.png")
-            self.data += [{"conditioning_image":_rgb_path, "scan_depth":_scan_path, "cad_depth":_gt_path, "item_id": item}]
-
+            self.data += [{"conditioning_image":_rgb_path, "scan_depth":_scan_path, "cad_depth":_gt_path, "scene_id": scene_id, "frame_id": frame_id}]
+        
         self.to_tensor = T.ToTensor()
         self.resolution = resolution
-        if split == "train":
-            self.transform = T.RandomResizedCrop(size=resolution, scale=(0.5,2.0))
-        else:
-            self.transform = T.Compose([
-                T.CenterCrop((192, 192)),  # Crop the image to 192x192 without resizing
-                T.Resize((512, 512))  # Resize the cropped image to 512x512
-            ])
+
+        self.transform = T.Compose([
+            T.CenterCrop((192, 192)),  # Crop the image to 192x192 (fit original input image size) without resizing
+            T.Resize((resolution, resolution))  # Resize the cropped image to 512x512 (Stable Diffusion input size)
+        ])
 
     def __len__(self):
         return len(self.data)
@@ -98,8 +96,9 @@ class Sim2RealDataset(Dataset):
         scan_depth = data[3:6]
         cad_depth = data[6:9]
         invalid_mask = data[9:].bool()
-
-        rgb_image = (rgb_image * 2.0) - 1.0  # make it in [-1, 1]
+       
+        # norm to # [-1, 1]
+        rgb_image = (rgb_image * 2.0) - 1.0  
         scan_depth = (scan_depth * 2.0) - 1.0
         cad_depth = (cad_depth * 2.0) - 1.0
         return rgb_image, scan_depth, cad_depth, invalid_mask
@@ -117,19 +116,18 @@ class Sim2RealDataset(Dataset):
     
     def __getitem__(self, idx):
         item = self.data[idx]
-
-        item_id = item['item_id']
-        rgb_image = self.load_image(item['conditioning_image'], "RGB")
+        scene_id = item['scene_id']
+        frame_id = item['frame_id']
+        rgb_image = self.load_image(item['conditioning_image'], "RGB") # for mask and save for later reconstruction
         scan_depth = self.load_depth_image(item['scan_depth'])
         cad_depth = self.load_depth_image(item['cad_depth'])
 
         rgb_image_ori = rgb_image
         scan_depth_ori = scan_depth
         cad_depth_ori = cad_depth
-
+    
         cad_depth_mask = cad_depth > 0.0
-        diff_mask = np.abs(scan_depth - cad_depth) < 0.5  # filter context (cad has no depth on context)
-
+        diff_mask = np.abs(scan_depth - cad_depth) < 0.5
         invalid_mask = self.to_tensor(~(cad_depth_mask & diff_mask)).repeat(3, 1, 1)
         
         scan_depth_tensor = self.to_tensor(self.log_scale_and_expand(scan_depth))
@@ -144,6 +142,19 @@ class Sim2RealDataset(Dataset):
 
         rgb_image, scan_depth, cad_depth = self.permute_channels(rgb_image, scan_depth, cad_depth)
         
-        diff_depth = (scan_depth - cad_depth) / 2 # [-2, 2]
+        # get residual
+        diff_depth = (scan_depth - cad_depth) / 2 # [-2, 2] / 2
 
-        return dict(jpg=diff_depth, txt="", hint=rgb_image, prior=cad_depth, ori_rgb=rgb_image_ori, ori_scan=scan_depth_ori, ori_cad=cad_depth_ori, item_id=item_id)
+        return dict(jpg=diff_depth, txt="", hint=rgb_image, prior=cad_depth, ori_rgb=rgb_image_ori, ori_scan=scan_depth_ori, ori_cad=cad_depth_ori, scene_id=scene_id, frame_id=frame_id, scan=scan_depth)
+
+if __name__ == '__main__':
+    from torch.utils.data import DataLoader
+    data_path = "/data/mutian/lasa_depth"
+    dataset = Sim2RealDataset(data_dir=data_path, split="val", resolution=512)
+    dataloader = DataLoader(dataset, num_workers=4, batch_size=2, shuffle=True)
+    for batch_id, _batch in enumerate(dataloader):
+        _scene_id = _batch["scene_id"]
+        _frame_id = _batch["frame_id"]
+        for i in range(len(_scene_id)):
+            scene_id = _scene_id[i]
+            frame_id = _frame_id[i]
