@@ -111,6 +111,8 @@ conda activate stable-sim2real
 pip install -r requirements.txt
 ```
 
+### Preparation of pretrained models
+
 Next, download all the pretrained models from [OneDrive](https://cuhko365-my.sharepoint.com/:f:/g/personal/221019043_link_cuhk_edu_cn/Em-VWJNEVYVMuDEqGO8oUCIBzWJQVE_iISFtZyrSY6128g?e=tQIyJa) or [Sharepoint](https://cuhko365.sharepoint.com/:f:/s/CUHKSZ_SSE_GAP-Lab2/EmLWPs2C-pNBh-yX9mENuz4BxJ7jn9tW895mKixHnKVUrA?e=aGNmP7), and put all of them into `pretrained_weights` folder.
 
 ## Data Preparation
