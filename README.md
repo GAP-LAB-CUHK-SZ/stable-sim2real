@@ -84,7 +84,7 @@ TABLE OF CONTENTS
 
 ## 📢 News
 - The first major revision of code is out. Try the latest code to run Stable-Sim2Real on LASA! 💪💪💪 (Aug.28, 2025 UTC)
-- The initial code is released, which is simple scripts. (Aug.15, 2025 UTC)
+- The initial code is released, which is a simple script. (Aug.15, 2025 UTC)
 
 
 ## Requirements and Installation
@@ -102,11 +102,11 @@ cd stable-sim2real
 First of all, you have to make sure that you have all dependencies in place.
 The simplest way to do so is to use [anaconda](https://www.anaconda.com/). 
 
-You can create an Anaconda environment called `stable-sim2real` and install all the dependencies as below. For linux, you need to install `libopenexr-dev` before creating the environment. Then install all the remaining dependencies:
+You can create an Anaconda environment called `stable-sim2real` and install all the dependencies as below. For Linux, you need to install `libopenexr-dev` before creating the environment. Then install all the remaining dependencies:
 
 ```bash
 sudo apt-get install libopenexr-dev # for linux
-conda create -n stable-sim2real python=3.8 (recommended python version >= 3.8)
+conda create -n stable-sim2real python=3.9 (recommended python version >= 3.9)
 conda activate stable-sim2real
 pip install -r requirements.txt
 ```
