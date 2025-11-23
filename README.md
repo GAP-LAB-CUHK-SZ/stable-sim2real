@@ -113,13 +113,13 @@ pip install -r requirements.txt
 
 ### Preparation of pretrained models
 
-Next, download all the pretrained models from [OneDrive](https://cuhko365-my.sharepoint.com/:f:/g/personal/221019043_link_cuhk_edu_cn/Em-VWJNEVYVMuDEqGO8oUCIBzWJQVE_iISFtZyrSY6128g?e=tQIyJa) or [Sharepoint](https://cuhko365.sharepoint.com/:f:/s/CUHKSZ_SSE_GAP-Lab2/EmLWPs2C-pNBh-yX9mENuz4BxJ7jn9tW895mKixHnKVUrA?e=aGNmP7), and put all of them into `pretrained_weights` folder.
+Next, download all the pretrained models from [Sharepoint](https://cuhko365.sharepoint.com/:f:/s/CUHKSZ_SSE_GAP-Lab2/EmLWPs2C-pNBh-yX9mENuz4BxJ7jn9tW895mKixHnKVUrA?e=aGNmP7), and put all of them into `pretrained_weights` folder.
 
 ## Data Preparation
 
-Download the training dataset from [OneDrive](https://cuhko365-my.sharepoint.com/:u:/g/personal/221019043_link_cuhk_edu_cn/EVvkUo5jgEZNiTXNGG1hXBkBTVefVVBLjLJxK7sbzBGjVQ?e=ZmoWX3) or [Sharepoint](https://cuhko365.sharepoint.com/:u:/s/CUHKSZ_SSE_GAP-Lab2/ET66yxmFoExInhh4lEAGuqEB53PsFAK3Z-ns1QeMBR3QYQ?e=wAJark), and put `lasa_depth` into `dataset` folder. It contains 40,000+ synthetic-real depth pairs with corresponding RGB images. It is processed from [LASA](https://github.com/GAP-LAB-CUHK-SZ/LASA), a large-scale aligned shape annotation dataset with CAD/real 3D data pairs.
+Download the training dataset from [Sharepoint](https://cuhko365.sharepoint.com/:u:/s/CUHKSZ_SSE_GAP-Lab2/ET66yxmFoExInhh4lEAGuqEB53PsFAK3Z-ns1QeMBR3QYQ?e=wAJark), and put `lasa_depth` into `dataset` folder. It contains 40,000+ synthetic-real depth pairs with corresponding RGB images. It is processed from [LASA](https://github.com/GAP-LAB-CUHK-SZ/LASA), a large-scale aligned shape annotation dataset with CAD/real 3D data pairs.
 
-Next, download the camera poses from [OneDrive](https://cuhko365-my.sharepoint.com/:u:/g/personal/221019043_link_cuhk_edu_cn/EbgsJC64R_BKudMyK2hB4icByEo-42goIY1ZaRfOx3znXA?e=ZFvbaL) or [Sharepoint](https://cuhko365.sharepoint.com/:u:/s/CUHKSZ_SSE_GAP-Lab2/Ebh2CjOhyyNHrVEfov8rt-UB_rr1Mbl8oUVEZ_-0qXnR_A?e=2YxiJZ), and put `lasa_pose` into `dataset` folder. This is for later depth fusion.
+Next, download the camera poses from [Sharepoint](https://cuhko365.sharepoint.com/:u:/s/CUHKSZ_SSE_GAP-Lab2/Ebh2CjOhyyNHrVEfov8rt-UB_rr1Mbl8oUVEZ_-0qXnR_A?e=2YxiJZ), and put `lasa_pose` into `dataset` folder. This is for later depth fusion.
 
 ## Run Stable-Sim2Real on LASA validation set
 
